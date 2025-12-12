@@ -1,13 +1,16 @@
 package com.example;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import com.example.Account;
+import com.example.AccountRepository;
+import com.example.AccountRepositoryJdbc;
+import com.example.MoonMissionRepository;
+import com.example.MoonMissionRepositoryJdbc;
+
 import java.util.Arrays;
+import java.util.Scanner;
 
 public class Main {
-
-    static void main(String[] args) {
+    public static void main(String[] args) {
         if (isDevMode(args)) {
             DevDatabaseInitializer.start();
         }
@@ -15,43 +18,157 @@ public class Main {
     }
 
     public void run() {
-        // Resolve DB settings with precedence: System properties -> Environment variables
         String jdbcUrl = resolveConfig("APP_JDBC_URL", "APP_JDBC_URL");
         String dbUser = resolveConfig("APP_DB_USER", "APP_DB_USER");
         String dbPass = resolveConfig("APP_DB_PASS", "APP_DB_PASS");
 
         if (jdbcUrl == null || dbUser == null || dbPass == null) {
-            throw new IllegalStateException(
-                    "Missing DB configuration. Provide APP_JDBC_URL, APP_DB_USER, APP_DB_PASS " +
-                            "as system properties (-Dkey=value) or environment variables.");
-        }
+                     throw new IllegalStateException(
+                    "Missing DB configuration. Required: APP_JDBC_URL, APP_DB_USER, APP_DB_PASS (property or env)."
+                                        );
+                   }
 
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, dbUser, dbPass)) {
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        SimpleDriverManagerDataSource ds = new SimpleDriverManagerDataSource(jdbcUrl, dbUser, dbPass);
+        AccountRepository accountRepo = new AccountRepositoryJdbc(ds);
+        MoonMissionRepository missionRepo = new MoonMissionRepositoryJdbc(ds);
+
+        Scanner sc = new Scanner(System.in);
+
+        System.out.println("Username:");
+        String username = sc.nextLine();
+        System.out.println("Password:");
+        String password = sc.nextLine();
+
+        if (accountRepo.findByNameAndPassword(username, password).isPresent()) {
+            System.out.println("username accepted");
+            menuLoop(accountRepo, missionRepo, sc);
+        } else {
+            System.out.println("Invalid username or password");
+            System.out.println("0) Exit");
+            String opt = sc.nextLine();
+            if ("0".equals(opt)) {
+                return;
+            }
         }
-        //Todo: Starting point for your code
     }
 
-    /**
-     * Determines if the application is running in development mode based on system properties,
-     * environment variables, or command-line arguments.
-     *
-     * @param args an array of command-line arguments
-     * @return {@code true} if the application is in development mode; {@code false} otherwise
-     */
+    private void menuLoop(AccountRepository accountRepo, MoonMissionRepository missionRepo, Scanner sc) {
+        boolean running = true;
+        while (running) {
+            System.out.println("Menu:");
+            System.out.println("1) List moon missions");
+            System.out.println("2) Get mission by id");
+            System.out.println("3) Count missions by year");
+            System.out.println("4) Create account");
+            System.out.println("5) Update account password");
+            System.out.println("6) Delete account");
+            System.out.println("0) Exit");
+
+            String choice = sc.nextLine();
+            switch (choice) {
+                case "1":
+                    missionRepo.findAll().forEach(m -> System.out.println(m.spacecraft()));
+                    break;
+                case "2":
+                    System.out.println("mission_id:");
+                    int id;
+                    try {
+                        id = Integer.parseInt(sc.nextLine().trim());
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid id");
+                        break;
+                    }
+                    missionRepo.findById(id).ifPresentOrElse(
+                            m -> System.out.println("Mission " + m.missionId() + ": " + m.spacecraft()),
+                            () -> System.out.println("No mission found")
+                    );
+                    break;
+                case "3":
+                    System.out.println("year:");
+                    int year;
+                        try {year = Integer.parseInt(sc.nextLine().trim());
+                                } catch (NumberFormatException e) {
+                                           System.out.println("Invalid year")
+                                           ;break;
+                                       }
+                    int count = missionRepo.countByYear(year);
+                    System.out.println(count + " missions in " + year);
+                    break;
+                case "4":
+                    System.out.println("first name:");
+                    String fn = sc.nextLine();
+                    System.out.println("last name:");
+                    String ln = sc.nextLine();
+                    System.out.println("ssn:");
+                    String ssn = sc.nextLine();
+                    System.out.println("password:");
+                    String pw = sc.nextLine();
+                        String fn3 = fn.trim().length() >= 3 ? fn.trim().substring(0, 3) : fn.trim();
+                                      String ln3 = ln.trim().length() >= 3 ? ln.trim().substring(0, 3) : ln.trim();
+                                       if (fn3.isEmpty() || ln3.isEmpty()) {
+                                            System.out.println("First/last name required");
+                                           break;
+                                       }
+                                        String name = (fn3 + ln3).toLowerCase();
+                    accountRepo.create(new Account(0, name, pw, fn, ln, ssn));
+                    System.out.println("account created");
+                    break;
+                case "5":
+                    System.out.println("user_id:");
+                    int uid;
+                    try {
+                        uid = Integer.parseInt(sc.nextLine().trim());
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid user_id");
+                        break;
+                    }
+                    System.out.println("new password:");
+                    String newPw = sc.nextLine();
+                    try {
+                        if (accountRepo.updatePassword(uid, newPw)) {
+                            System.out.println("updated");
+                        } else {
+                            System.out.println("No account found with id " + uid);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Error updating password: " + e.getMessage());
+                    }
+                    break;
+
+                case "6":
+                    System.out.println("user_id:");
+                    int delId;
+                    try {
+                        delId = Integer.parseInt(sc.nextLine().trim());
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid user_id");
+                        break;
+                    }
+                    try {
+                        if (accountRepo.delete(delId)) {
+                            System.out.println("deleted");
+                        } else {
+                            System.out.println("No account found with id " + delId);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Error deleting account: " + e.getMessage());
+                    }
+                    break;
+                case "0":
+                    running = false;
+                    break;
+                default:
+                    System.out.println("Invalid option");
+            }
+        }
+    }
+
     private static boolean isDevMode(String[] args) {
-        if (Boolean.getBoolean("devMode"))  //Add VM option -DdevMode=true
-            return true;
-        if ("true".equalsIgnoreCase(System.getenv("DEV_MODE")))  //Environment variable DEV_MODE=true
-            return true;
-        return Arrays.asList(args).contains("--dev"); //Argument --dev
+        if (Boolean.getBoolean("devMode")) return true;
+        if ("true".equalsIgnoreCase(System.getenv("DEV_MODE"))) return true;
+        return Arrays.asList(args).contains("--dev");
     }
 
-    /**
-     * Reads configuration with precedence: Java system property first, then environment variable.
-     * Returns trimmed value or null if neither source provides a non-empty value.
-     */
     private static String resolveConfig(String propertyKey, String envKey) {
         String v = System.getProperty(propertyKey);
         if (v == null || v.trim().isEmpty()) {

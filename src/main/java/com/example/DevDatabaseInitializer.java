@@ -1,6 +1,5 @@
 package com.example;
 
-
 import org.testcontainers.containers.MySQLContainer;
 
 public class DevDatabaseInitializer {
@@ -16,9 +15,11 @@ public class DevDatabaseInitializer {
                     .withInitScript("init.sql");
             mysql.start();
 
+
             System.setProperty("APP_JDBC_URL", mysql.getJdbcUrl());
             System.setProperty("APP_DB_USER", mysql.getUsername());
             System.setProperty("APP_DB_PASS", mysql.getPassword());
+            System.out.println("Init script loaded, JDBC URL: " + mysql.getJdbcUrl());
         }
     }
 }
