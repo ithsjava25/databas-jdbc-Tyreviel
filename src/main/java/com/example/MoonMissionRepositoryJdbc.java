@@ -61,10 +61,11 @@ public class MoonMissionRepositoryJdbc implements MoonMissionRepository {
 
     @Override
     public int countByYear(int year) {
-        String sql = "SELECT COUNT(*) FROM moon_mission WHERE YEAR(launch_date) = ?";
+        String sql = "SELECT COUNT(*) FROM moon_mission WHERE launch_date >= ? AND launch_date < ?";
         try (Connection conn = ds.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, year);
+            ps.setDate(1, java.sql.Date.valueOf(java.time.LocalDate.of(year, 1, 1)));
+            ps.setDate(2, java.sql.Date.valueOf(java.time.LocalDate.of(year + 1, 1, 1)));
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) return rs.getInt(1);
             }

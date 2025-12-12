@@ -1,6 +1,5 @@
 package com.example;
 
-
 import org.testcontainers.containers.MySQLContainer;
 
 public class DevDatabaseInitializer {

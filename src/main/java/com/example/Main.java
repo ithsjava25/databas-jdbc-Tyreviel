@@ -23,8 +23,10 @@ public class Main {
         String dbPass = resolveConfig("APP_DB_PASS", "APP_DB_PASS");
 
         if (jdbcUrl == null || dbUser == null || dbPass == null) {
-            throw new IllegalStateException("Missing DB configuration...");
-        }
+                     throw new IllegalStateException(
+                    "Missing DB configuration. Required: APP_JDBC_URL, APP_DB_USER, APP_DB_PASS (property or env)."
+                                        );
+                   }
 
         SimpleDriverManagerDataSource ds = new SimpleDriverManagerDataSource(jdbcUrl, dbUser, dbPass);
         AccountRepository accountRepo = new AccountRepositoryJdbc(ds);
@@ -69,7 +71,13 @@ public class Main {
                     break;
                 case "2":
                     System.out.println("mission_id:");
-                    int id = Integer.parseInt(sc.nextLine());
+                    int id;
+                    try {
+                        id = Integer.parseInt(sc.nextLine().trim());
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid id");
+                        break;
+                    }
                     missionRepo.findById(id).ifPresentOrElse(
                             m -> System.out.println("Mission " + m.missionId() + ": " + m.spacecraft()),
                             () -> System.out.println("No mission found")
@@ -77,7 +85,12 @@ public class Main {
                     break;
                 case "3":
                     System.out.println("year:");
-                    int year = Integer.parseInt(sc.nextLine());
+                    int year;
+                        try {year = Integer.parseInt(sc.nextLine().trim());
+                                } catch (NumberFormatException e) {
+                                           System.out.println("Invalid year")
+                                           ;break;
+                                       }
                     int count = missionRepo.countByYear(year);
                     System.out.println(count + " missions in " + year);
                     break;
@@ -90,24 +103,55 @@ public class Main {
                     String ssn = sc.nextLine();
                     System.out.println("password:");
                     String pw = sc.nextLine();
-                    String name = fn.substring(0,3) + ln.substring(0,3);
+                        String fn3 = fn.trim().length() >= 3 ? fn.trim().substring(0, 3) : fn.trim();
+                                      String ln3 = ln.trim().length() >= 3 ? ln.trim().substring(0, 3) : ln.trim();
+                                       if (fn3.isEmpty() || ln3.isEmpty()) {
+                                            System.out.println("First/last name required");
+                                           break;
+                                       }
+                                        String name = (fn3 + ln3).toLowerCase();
                     accountRepo.create(new Account(0, name, pw, fn, ln, ssn));
                     System.out.println("account created");
                     break;
                 case "5":
                     System.out.println("user_id:");
-                    int uid = Integer.parseInt(sc.nextLine());
+                    int uid;
+                    try {
+                        uid = Integer.parseInt(sc.nextLine().trim());
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid user_id");
+                        break;
+                    }
                     System.out.println("new password:");
                     String newPw = sc.nextLine();
-                    if (accountRepo.updatePassword(uid, newPw)) {
-                        System.out.println("updated");
+                    try {
+                        if (accountRepo.updatePassword(uid, newPw)) {
+                            System.out.println("updated");
+                        } else {
+                            System.out.println("No account found with id " + uid);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Error updating password: " + e.getMessage());
                     }
                     break;
+
                 case "6":
                     System.out.println("user_id:");
-                    int delId = Integer.parseInt(sc.nextLine());
-                    if (accountRepo.delete(delId)) {
-                        System.out.println("deleted");
+                    int delId;
+                    try {
+                        delId = Integer.parseInt(sc.nextLine().trim());
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid user_id");
+                        break;
+                    }
+                    try {
+                        if (accountRepo.delete(delId)) {
+                            System.out.println("deleted");
+                        } else {
+                            System.out.println("No account found with id " + delId);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("Error deleting account: " + e.getMessage());
                     }
                     break;
                 case "0":

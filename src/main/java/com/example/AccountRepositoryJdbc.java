@@ -33,7 +33,7 @@ public class AccountRepositoryJdbc implements AccountRepository {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new IllegalStateException("DB operation failed", e);
         }
         return Optional.empty();
     }
